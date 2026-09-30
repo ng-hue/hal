@@ -1,0 +1,382 @@
+/* ==========================================================================
+   hal — main stylesheet
+   Sections: 1. Tokens  2. Base  3. Orb  4. Shell & glass  5. Sidebar
+             6. Chat  7. Input  8. Mode toggle  9. Keyframes
+   Tweak the look almost entirely from section 1.
+   ========================================================================== */
+
+/* 1. Tokens ---------------------------------------------------------------- */
+:root {
+  --bg: #040404;
+  --text: #ece9e6;
+  --muted: #8d8986;
+  --accent: #ff3b30;
+  --accent-soft: rgba(255, 59, 48, 0.18);
+
+  --glass-bg: rgba(16, 16, 18, 0.42);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 18px;
+
+  --radius: 14px;
+  --gap: 12px;
+  --sidebar-w: 272px;
+  --chat-max: 820px;
+
+  --orb-size: min(62vmin, 600px);
+  --level: 0;                         /* 0–1, set from Rust */
+  --mode-fade: 1.2s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* 2. Base ------------------------------------------------------------------ */
+* { box-sizing: border-box; }
+
+html, body, #main {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+button, textarea, select { font: inherit; color: inherit; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+/* 3. Orb ------------------------------------------------------------------- */
+.orb-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, #120404 0%, var(--bg) 70%);
+  transition: filter var(--mode-fade);
+}
+
+/* Manual mode: greyed out, still breathing. Voice mode: saturated. */
+.orb--dim   { filter: saturate(0.3) brightness(0.6); }
+.orb--awake { filter: saturate(1.35) brightness(1.1); }
+
+.orb {
+  position: relative;
+  width: var(--orb-size);
+  aspect-ratio: 1;
+  /* `scale` composes with the `transform` animations on the children. */
+  scale: calc(1 + var(--level) * 0.1);
+}
+
+.orb > div { position: absolute; border-radius: 50%; }
+
+.orb__haze {
+  inset: -45%;
+  background: radial-gradient(circle, rgba(255, 25, 10, 0.32) 0%, transparent 62%);
+  filter: blur(40px);
+  animation: breathe 7.3s ease-in-out infinite;
+}
+
+.orb__glow {
+  inset: 0;
+  background: radial-gradient(circle,
+    rgba(255, 70, 40, 0.95) 0%,
+    rgba(210, 0, 0, 0.65) 28%,
+    rgba(90, 0, 0, 0.25) 52%,
+    transparent 70%);
+  opacity: calc(0.7 + var(--level) * 0.3);
+  animation: pulse 3.1s ease-in-out infinite;
+}
+
+/* Slowly rotating streaks = the "machine" feeling. */
+.orb__ring {
+  inset: 16%;
+  background: conic-gradient(from 0deg,
+    transparent 0deg, rgba(255, 110, 70, 0.22) 40deg, transparent 80deg,
+    transparent 170deg, rgba(255, 60, 40, 0.16) 220deg, transparent 260deg);
+  -webkit-mask: radial-gradient(circle, transparent 42%, #000 46%, #000 60%, transparent 66%);
+          mask: radial-gradient(circle, transparent 42%, #000 46%, #000 60%, transparent 66%);
+  animation: spin 19s linear infinite;
+}
+.orb--thinking .orb__ring { animation-duration: 3.5s; }
+
+.orb__core {
+  inset: 37%;
+  background: radial-gradient(circle,
+    #fff4d6 0%, #ffb24a 18%, #ff3a1c 44%, rgba(255, 0, 0, 0) 72%);
+  filter: blur(1.5px);
+  opacity: calc(0.75 + var(--level) * 0.25);
+  animation: flicker 5.3s steps(1, end) infinite, pulse 2.3s ease-in-out infinite;
+}
+
+.orb__glint {
+  top: 30%; left: 33%;
+  width: 12%; height: 7%;
+  background: rgba(255, 255, 255, 0.14);
+  filter: blur(4px);
+  rotate: -30deg;
+}
+
+.orb__scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg,
+    rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px);
+  opacity: 0.35;
+  animation: scan 9s linear infinite;
+}
+
+.orb__status {
+  position: absolute;
+  bottom: 10vh;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: rgba(255, 120, 100, 0.8);
+  animation: breathe 3s ease-in-out infinite;
+}
+
+/* 4. Shell & glass --------------------------------------------------------- */
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+          backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+}
+
+.shell {
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  gap: var(--gap);
+  padding: var(--gap);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.shell--hidden {
+  opacity: 0;
+  transform: scale(0.985);
+  pointer-events: none;
+}
+
+.btn {
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn--ghost { background: transparent; }
+.btn--icon { padding: 4px 9px; }
+
+/* 5. Sidebar --------------------------------------------------------------- */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  min-height: 0;
+}
+
+.sidebar__header { display: flex; align-items: center; justify-content: space-between; }
+
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: 0.08em; }
+.brand__dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+
+.section-label {
+  margin-top: 8px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.model-picker { display: flex; gap: 6px; }
+.select {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 28px 7px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  -webkit-appearance: none;
+          appearance: none;
+  background-color: rgba(0, 0, 0, 0.35);
+  /* hand-drawn chevron, since the native arrow is gone */
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.select option { background: #151515; }
+
+.conv-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+
+.conv-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.conv-item:hover { background: rgba(255, 255, 255, 0.06); }
+.conv-item--active { background: var(--accent-soft); }
+.conv-item__title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-item__delete {
+  opacity: 0; border: 0; background: none; cursor: pointer; color: var(--muted);
+}
+.conv-item:hover .conv-item__delete { opacity: 1; }
+
+/* 6. Chat ------------------------------------------------------------------ */
+.chat-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+  min-width: 0;
+}
+
+.chat-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;   /* keeps the view pinned to the newest message */
+}
+
+.chat-scroll__inner {
+  width: 100%;
+  max-width: var(--chat-max);
+  margin: 0 auto;
+  padding: 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.empty-state { text-align: center; margin: 22vh auto 0; }
+.empty-state h1 { font-weight: 500; font-size: 26px; margin: 0 0 6px; }
+
+.msg {
+  max-width: 82%;
+  padding: 10px 15px;
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.msg--user {
+  align-self: flex-end;
+  background: var(--accent-soft);
+  border: 1px solid rgba(255, 59, 48, 0.3);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+          backdrop-filter: blur(var(--glass-blur));
+}
+.msg--assistant { align-self: flex-start; }
+.msg--system { align-self: center; color: var(--muted); font-size: 13px; }
+.msg__label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+
+.typing { display: flex; gap: 4px; padding: 6px 0; }
+.typing span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  animation: dot 1.2s ease-in-out infinite;
+}
+.typing span:nth-child(2) { animation-delay: 0.15s; }
+.typing span:nth-child(3) { animation-delay: 0.3s; }
+
+/* 7. Input ----------------------------------------------------------------- */
+.input-area {
+  width: 100%;
+  max-width: var(--chat-max);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.error-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 8px 6px 14px;
+  font-size: 13px;
+  color: #ffb4ab;
+  border-color: rgba(255, 59, 48, 0.35);
+}
+
+.input-bar { display: flex; align-items: flex-end; gap: 8px; padding: 8px; }
+.input-bar__text {
+  flex: 1;
+  resize: none;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 8px 10px;
+  max-height: 200px;
+  field-sizing: content;   /* grows with text where supported */
+}
+.btn--send {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+  padding: 8px 16px;
+}
+.btn--send:hover:not(:disabled) { background: #ff5247; }
+
+/* 8. Mode toggle ----------------------------------------------------------- */
+.mode-toggle {
+  position: fixed;
+  top: calc(var(--gap) + 10px);
+  right: calc(var(--gap) + 10px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  border-radius: 999px;
+}
+.mode-toggle__dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.mode-toggle--voice .mode-toggle__dot {
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+/* 9. Keyframes -------------------------------------------------------------
+   Durations are deliberately "odd" (3.1s, 5.3s, 7.3s, 19s) so the layers
+   drift in and out of sync and never visibly loop. */
+@keyframes breathe { 0%, 100% { opacity: .75; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.04); } }
+@keyframes pulse   { 0%, 100% { transform: scale(.98); } 50% { transform: scale(1.025); } }
+@keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes scan    { to { background-position: 0 30px; } }
+@keyframes dot     { 0%, 100% { opacity: .3; translate: 0 0; } 50% { opacity: 1; translate: 0 -3px; } }
+@keyframes flicker {
+  0%, 100% { filter: blur(1.5px) brightness(1); }
+  41%      { filter: blur(1.5px) brightness(1.18); }
+  43%      { filter: blur(1.5px) brightness(.92); }
+  77%      { filter: blur(1.5px) brightness(1.08); }
+}
+
+/* Narrow windows (and later, phones): stack the sidebar above the chat. */
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .conv-list { max-height: 120px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb *, .orb__scanlines { animation: none !important; }
+}
